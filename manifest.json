@@ -1,0 +1,22 @@
+{
+    "name": "Clippy",
+    "version": "1.0",
+    "description": "Cross-platform copy-paste for all your devices",
+    "permissions": [
+        "storage",
+        "contextMenus",
+        "https://*/",
+        "http://*/"
+    ],
+    "background": {
+        "scripts": ["background.js"],
+        "persistent": false
+    },
+    "icons": {
+        "16": "images/clippy16.png",
+        "32": "images/clippy32.png",
+        "48": "images/clippy48.png",
+        "128": "images/clippy128.png"
+    },
+    "manifest_version": 2
+}
