@@ -22,7 +22,7 @@ function setPass(pass) {
 
 // send the selection to the main clipboard on AWS
 function sendToMain(clipped) {
-    var item = { "item": clipped};
+    var item = { 'item': clipped};
 
     fetch(`${aws_url_base}user/bailersp/clipboard`,{
         method : "POST",
@@ -39,7 +39,7 @@ function getFromMain() {
     var xmlHttp = new XMLHttpRequest();
     xmlHttp.onreadystatechange = function() {
         if (xmlHttp.readyState == 4) {
-            console.log("received " + xmlHttp.responseText);
+            console.log('received ' + xmlHttp.responseText);
             window.getSelection().innerHTML = 'zeal';
         }
     }
@@ -63,29 +63,36 @@ chrome.runtime.onInstalled.addListener(function() {
 
     // setup content menus for right-click purposes
     chrome.contextMenus.create({
-        title: "Copy onto CLIPPY",
-        id: "parent-copy", // for sub-menuing
-        contexts: ["selection"]
+        title: 'Copy onto CLIPPY',
+        id: 'parent-copy', // for sub-menuing
+        contexts: ['selection']
     });
 
     chrome.contextMenus.create({
-        title: "Copy to clipboard WORK",
-        id: "child-copy",
-        parentId: "parent-copy",
-        contexts: ["selection"],
+        title: 'Copy to clipboard WORK',
+        id: 'child-copy',
+        parentId: 'parent-copy',
+        contexts: ['selection'],
     });
 
     chrome.contextMenus.create({
-        title: "Paste from CLIPPY",
-        id: "parent-paste",
-        contexts: ["editable"]
+        title: 'Copy to clipboard MISC',
+        id: 'child-copy-bad',
+        parentId: 'parent-copy',
+        contexts: ['selection']
     });
 
     chrome.contextMenus.create({
-        title: "Paste from clipboard WORK",
-        id: "child-paste",
-        parentId: "parent-paste",
-        contexts: ["editable"]
+        title: 'Paste from CLIPPY',
+        id: 'parent-paste',
+        contexts: ['editable']
+    });
+
+    chrome.contextMenus.create({
+        title: 'Paste from clipboard WORK',
+        id: 'child-paste',
+        parentId: 'parent-paste',
+        contexts: ['editable']
     });
 
     // set actions for when context menu clicked
@@ -94,6 +101,8 @@ chrome.runtime.onInstalled.addListener(function() {
             sendToMain(info.selectionText);
         } else if (info.menuItemId == 'child-paste') {
             getFromMain();
+        } else if (info.menuItemId == 'child-copy-bad') {
+            alert('UNSUPPORTED FUNCTIONALITY');
         }
     });
 });
