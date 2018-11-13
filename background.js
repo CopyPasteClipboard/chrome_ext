@@ -52,6 +52,14 @@ function getFromMain() {
     });
 }
 
+
+// paste into the webpage
+function paste(info, tab, to_paste) {
+    chrome.tabs.sendMessage(tab.id, to_paste, function(clicked) {
+        // do nothing for now
+    });
+}
+
 // add events to occurr on extension installation
 chrome.runtime.onInstalled.addListener(function() {
     // get user's CLIPPY credentials
@@ -100,7 +108,8 @@ chrome.runtime.onInstalled.addListener(function() {
         if (info.menuItemId == 'child-copy') {
             sendToMain(info.selectionText);
         } else if (info.menuItemId == 'child-paste') {
-            getFromMain();
+            var to_paste = getFromMain();
+            paste(info, tab, to_paste);           
         } else if (info.menuItemId == 'child-copy-bad') {
             alert('UNSUPPORTED FUNCTIONALITY');
         }
