@@ -55,10 +55,39 @@ function getFromMain() {
 
 // paste into the webpage
 function paste(info, tab, to_paste) {
-    chrome.tabs.sendMessage(tab.id, to_paste, function(clicked) {
+    var message = { type: 'paste', msg: to_paste };
+    chrome.tabs.sendMessage(tab.id, message, function(clicked) {
         // do nothing for now
     });
 }
+
+function getClipboards() {
+    return ['work', 'frivolous'];
+}
+
+// fetch current menus from AWS to dynamically generate them before user right-clicks
+function generateMenus() {
+    var clipboards = getClipboards();
+
+    for (clipboard of clipboards) {
+        // clipboard to be shown on copy
+        chrome.contextMenus.create({
+            title: clipboard,
+            id: clipboard + '_copy',
+            parentId: 'root-copy',
+            contexts: ['selection']
+        });
+
+        // clipboard to see on paste
+        chrome.contextMenus.create({
+            title: clipboard,
+            id: clipboard + '_paste',
+            parentId: 'root-paste',
+            contexts: ['editable']
+        });
+    }
+}
+
 
 // add events to occurr on extension installation
 chrome.runtime.onInstalled.addListener(function() {
@@ -69,51 +98,32 @@ chrome.runtime.onInstalled.addListener(function() {
     setUser(username);
     setPass(password);
 
-    // setup content menus for right-click purposes
+    // setup top-level context menus
+
     chrome.contextMenus.create({
         title: 'Copy onto CLIPPY',
-        id: 'parent-copy', // for sub-menuing
+        id: 'root-copy',
         contexts: ['selection']
     });
 
     chrome.contextMenus.create({
-        title: 'Copy to clipboard WORK',
-        id: 'child-copy',
-        parentId: 'parent-copy',
-        contexts: ['selection'],
-    });
-
-    chrome.contextMenus.create({
-        title: 'Copy to clipboard MISC',
-        id: 'child-copy-bad',
-        parentId: 'parent-copy',
-        contexts: ['selection']
-    });
-
-    chrome.contextMenus.create({
-        title: 'Paste from CLIPPY',
-        id: 'parent-paste',
+        title: 'Paste into CLIPPY',
+        id: 'root-paste',
         contexts: ['editable']
-    });
-
-    chrome.contextMenus.create({
-        title: 'Paste from clipboard WORK',
-        id: 'child-paste',
-        parentId: 'parent-paste',
-        contexts: ['editable']
-    });
+    });    
 
     // set actions for when context menu clicked
     chrome.contextMenus.onClicked.addListener(function(info, tab) {
-        if (info.menuItemId == 'child-copy') {
-            sendToMain(info.selectionText);
-        } else if (info.menuItemId == 'child-paste') {
-            var to_paste = getFromMain();
-            paste(info, tab, to_paste);           
-        } else if (info.menuItemId == 'child-copy-bad') {
-            alert('UNSUPPORTED FUNCTIONALITY');
+        var id = info.menuItemId;
+        var parentId = info.parentMenuItemId;
+        if (parentId === 'root-copy') {
+            console.log('Copied to main');//sendToMain(info.selectionText);
+        } else if (parentId == 'root-paste') {
+            var to_paste = 'eel';//getFromMain();
+            console.log('Pasted from main');//paste(info, tab, to_paste);           
         }
     });
-});
 
+    generateMenus();    
+});
 
