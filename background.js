@@ -61,13 +61,45 @@ function paste(info, tab, to_paste) {
     });
 }
 
+// return a list of the names of the current clipboards
 function getClipboards() {
-    return ['work', 'frivolous'];
+    // for testing purposes
+    var TEST_BOARDS = [
+        ['work', 'frivolous'],
+        ['home', 'work'],
+        ['1', '2', '3'],
+        ['idk', 'whatToPut', 'here', 'so', 'yeah'],
+        ['random'],
+        ['nil'],
+        ['yall', 'mind', 'if', 'i']
+    ];
+
+    return TEST_BOARDS[Math.floor(Math.random()*TEST_BOARDS.length)]//['work', 'frivolous'];
 }
+
+// creates the parent menus for copying and pasting
+function generateRootMenus() {
+    chrome.contextMenus.create({
+        title: 'Copy onto CLIPPY',
+        id: 'root-copy',
+        contexts: ['selection']
+    });
+
+    chrome.contextMenus.create({
+        title: 'Paste into CLIPPY',
+        id: 'root-paste',
+        contexts: ['editable']
+    });
+}
+        
 
 // fetch current menus from AWS to dynamically generate them before user right-clicks
 function generateMenus() {
+    // get new boards and remove old menus
     var clipboards = getClipboards();
+    chrome.contextMenus.removeAll();
+
+    generateRootMenus();
 
     for (clipboard of clipboards) {
         // clipboard to be shown on copy
@@ -98,20 +130,6 @@ chrome.runtime.onInstalled.addListener(function() {
     setUser(username);
     setPass(password);
 
-    // setup top-level context menus
-
-    chrome.contextMenus.create({
-        title: 'Copy onto CLIPPY',
-        id: 'root-copy',
-        contexts: ['selection']
-    });
-
-    chrome.contextMenus.create({
-        title: 'Paste into CLIPPY',
-        id: 'root-paste',
-        contexts: ['editable']
-    });    
-
     // set actions for when context menu clicked
     chrome.contextMenus.onClicked.addListener(function(info, tab) {
         var id = info.menuItemId;
@@ -124,6 +142,12 @@ chrome.runtime.onInstalled.addListener(function() {
         }
     });
 
-    generateMenus();    
+    // listen for refresh requests from content script
+
 });
 
+chrome.runtime.onMessage.addListener(function(msg, sender, response) {
+        if (msg.request === 'update') {
+            generateMenus();
+        }
+});

@@ -20,7 +20,7 @@ function updateMenu() {
   
 document.addEventListener('selectionchange', function() {
     updateMenu();
-}
+});
 
 document.addEventListener('mouseover', function(event) {
     var tag = event.target.tagName;
@@ -29,7 +29,7 @@ document.addEventListener('mouseover', function(event) {
         // update menu for possible right click on element
         updateMenu();
     }
-}
+});
 
 // constantly refresh menu in the case that mouse is stationary on an element
 // for a long period of time
