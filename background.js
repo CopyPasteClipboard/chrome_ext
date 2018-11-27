@@ -4,11 +4,11 @@
  */
 
 // all routes through here
-var aws_url_base = 'http://ec2-54-173-123-45.compute-1.amazonaws.com:8080/';
+var aws_url_base = 'http://34.224.86.78:8080/';
 
 // persist user's CLIPPY username in chrome storage
 function setUser(user) {
-    chrome.storage.sync.set({username: user}, function() {
+    chrome.storage.sync.set({userId: user}, function() {
         console.log('Stored username set to: ' + user);
     });
 }
@@ -20,36 +20,28 @@ function setPass(pass) {
     });
 }
 
-// send the selection to the main clipboard on AWS
-function sendToMain(clipped) {
-    var item = { 'item': clipped};
+// copy clipped into the global clipboard specified by board
+function sendToMain(clipped, boardId) {
+    var item = {'new_item': clipped};
+    var postUrl = `v1/clipboard/${boardId.split('_')[0]}/boarditem`
 
-    fetch(`${aws_url_base}user/bailersp/clipboard`,{
-        method : "POST",
+    fetch(`${aws_url_base}${postUrl}`,{
+        method : 'POST',
         headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json'
-    },
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        },
         body : JSON.stringify(item)
     }).then(res => res.json()).then(data => console.log(data)).catch(err => console.log(err));
 }
 
-// get the clipboard from AWS
-function getFromMain() {
-    var xmlHttp = new XMLHttpRequest();
-    xmlHttp.onreadystatechange = function() {
-        if (xmlHttp.readyState == 4) {
-            console.log('received ' + xmlHttp.responseText);
-            window.getSelection().innerHTML = 'zeal';
-        }
-    }
-
-    chrome.storage.sync.get('username', function(result) {
-        var final_url = aws_url_base + 'user/' + result.username + '/clipboard';
-        console.log('Sending to: ' + final_url);
-        xmlHttp.open("GET", final_url, true);
-        xmlHttp.send(null);//JSON.stringify(item));
-    });
+// get the contents of the board specified by boardId from the global clipboard
+// returns a Promise of the HTTPS request to receive this resource
+function getFromMain(boardId) {
+    var getUrl = `v1/clipboard/${boardId}?type=mostRecent||type=all`;
+    console.log(`getting from ${aws_url_base}${getUrl}`);
+    return fetch(`${aws_url_base}${getUrl}`)
+        .then(resp => resp.json());
 }
 
 
@@ -59,22 +51,6 @@ function paste(info, tab, to_paste) {
     chrome.tabs.sendMessage(tab.id, message, function(clicked) {
         // do nothing for now
     });
-}
-
-// return a list of the names of the current clipboards
-function getClipboards() {
-    // for testing purposes
-    var TEST_BOARDS = [
-        ['work', 'frivolous'],
-        ['home', 'work'],
-        ['1', '2', '3'],
-        ['idk', 'whatToPut', 'here', 'so', 'yeah'],
-        ['random'],
-        ['nil'],
-        ['yall', 'mind', 'if', 'i']
-    ];
-
-    return TEST_BOARDS[Math.floor(Math.random()*TEST_BOARDS.length)]//['work', 'frivolous'];
 }
 
 // creates the parent menus for copying and pasting
@@ -93,31 +69,58 @@ function generateRootMenus() {
 }
         
 
-// fetch current menus from AWS to dynamically generate them before user right-clicks
+// given all user clipboards from the global server,
+// generate the appropriate menus to appear on right-click
 function generateMenus() {
-    // get new boards and remove old menus
-    var clipboards = getClipboards();
+    console.log(needsUpdate);
+    // remove all menus for a clean slate
     chrome.contextMenus.removeAll();
 
     generateRootMenus();
 
-    for (clipboard of clipboards) {
-        // clipboard to be shown on copy
-        chrome.contextMenus.create({
-            title: clipboard,
-            id: clipboard + '_copy',
-            parentId: 'root-copy',
-            contexts: ['selection']
-        });
+    // return all the user's clipboards on the global server
+    // returned in format: [ [<board-name>, <board-id>], ...]
+    chrome.storage.sync.get('userId', item => {
+        var getUrl = `v1/user/${item.userId}/clipboards`;
+        console.log(`${aws_url_base}${getUrl}`);
+        fetch(`${aws_url_base}${getUrl}`, {
+            method : 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+        })
+        // get the response in a readable format
+        .then(resp => resp.json())
 
-        // clipboard to see on paste
-        chrome.contextMenus.create({
-            title: clipboard,
-            id: clipboard + '_paste',
-            parentId: 'root-paste',
-            contexts: ['editable']
-        });
-    }
+        .then(clipboards => {
+            for (clipboard of clipboards) {
+                // clipboard to be shown on copy
+                    chrome.contextMenus.create({
+                        title: clipboard['board_name'],
+                        id: clipboard['id'] + '_copy',
+                        parentId: 'root-copy',
+                        contexts: ['selection']
+                    });
+
+                    // clipboard to see on paste
+                    chrome.contextMenus.create({
+                        title: clipboard['board_name'],
+                        id: clipboard['id'] + '_paste',
+                        parentId: 'root-paste',
+                        contexts: ['editable']
+                    });
+            }
+
+            // check for the race condition caused by repeated 
+            // updates overwriting eachother
+            if (chrome.runtime.lastError) {
+                console.log('DAMN YOU, RACE CONDITION');
+            }
+        }).catch(err => console.log(err));
+    });
+
+    needsUpdate = true;
 }
 
 
@@ -135,19 +138,35 @@ chrome.runtime.onInstalled.addListener(function() {
         var id = info.menuItemId;
         var parentId = info.parentMenuItemId;
         if (parentId === 'root-copy') {
-            console.log('Copied to main');//sendToMain(info.selectionText);
+            console.log(`${info.selectionText} copied`);
+            sendToMain(info.selectionText, id);
         } else if (parentId == 'root-paste') {
-            var to_paste = 'eel';//getFromMain();
-            console.log('Pasted from main');//paste(info, tab, to_paste);           
+            getFromMain(id.split('_')[0]).then(item => {
+                var toPaste = item[0].text_content;
+                var message = { type: 'paste', msg: toPaste };
+                chrome.tabs.sendMessage(tab.id, message, function(clicked) {
+                    console.log(`Received item ${toPaste}`);
+                });
+            });
+        } else if (parentId == undefined) {
+            // user has clicked on the parent menus. choose their default (if it exists)
+            let getDefault = chrome.storage.sync.get('default');
+            getDefault.then(def => {
+                if (def) {
+                    console.log('Def is: ' + def);
+                }    
+            });
         }
     });
-
-    // listen for refresh requests from content script
-
 });
 
+var needsUpdate = true;
+
 chrome.runtime.onMessage.addListener(function(msg, sender, response) {
-        if (msg.request === 'update') {
+        console.log('generate');
+        if (msg.request === 'update' && needsUpdate) {
+            console.log('needs update is: ' + needsUpdate);
+            needsUpdate = false;
             generateMenus();
         }
 });

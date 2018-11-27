@@ -34,7 +34,7 @@ document.addEventListener('mouseover', function(event) {
 // constantly refresh menu in the case that mouse is stationary on an element
 // for a long period of time
 var refreshTime = 300; // in ms
-setInterval(updateMenu(), refreshTime);
+//setInterval(updateMenu, refreshTime);
 
 // receive message from background.js for pasting into editable element
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
