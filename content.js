@@ -15,30 +15,19 @@ document.addEventListener('mousedown', function(event) {
 
 // events to cause right-click menu to update
 function updateMenu() {
+    console.log('sent update');
     chrome.runtime.sendMessage({ request: 'update' });
 }
   
-document.addEventListener('selectionchange', function() {
-    updateMenu();
-});
-
-document.addEventListener('mouseover', function(event) {
-    var tag = event.target.tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA') {
-        // user moused over an editable element
-        // update menu for possible right click on element
-        updateMenu();
-    }
-});
-
 // constantly refresh menu in the case that mouse is stationary on an element
 // for a long period of time
-var refreshTime = 300; // in ms
-//setInterval(updateMenu, refreshTime);
+var refreshTime = 2000; // in ms
+setInterval(updateMenu, refreshTime);
 
 // receive message from background.js for pasting into editable element
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     if (request.type == 'paste') {
+        console.log('ASKED TO PASTE');
         rightClicked.value += request.msg; // paste
     }
  });

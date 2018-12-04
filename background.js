@@ -4,25 +4,41 @@
  */
 
 // all routes through here
-var aws_url_base = 'http://34.224.86.78:8080/';
+var aws_url_base = 'http://54.162.248.95:4000/';
 
 // persist user's CLIPPY username in chrome storage
 function setUser(user) {
-    chrome.storage.sync.set({userId: user}, function() {
-        console.log('Stored username set to: ' + user);
-    });
+    var postUrl = `${aws_url_base}v1/login`;
+    var content = {
+        method: 'POST',
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({'username': user})
+    };
+    fetch(postUrl, content)
+        .then(res => res.json())
+        .then(data => {
+            console.log(data);
+            chrome.storage.sync.set({userId: data['id']}, function() {
+                console.log('Stored userId set to: ' + data['id']);
+            });
+        })
+        .catch(err => console.log(err));
 }
 
 // persist user's CLIPPY password in chrome storage
 function setPass(pass) {
     chrome.storage.sync.set({password: pass}, function() {
-        console.log('Stored password set to: ' + pass);
+        console.log('Password stored!');
     });
 }
 
 // copy clipped into the global clipboard specified by board
-function sendToMain(clipped, boardId) {
-    var item = {'new_item': clipped};
+function sendToClipboard(clipped, boardId) {
+    console.log(`Sending ${clipped} to board w id ${boardId}`);
+    var item = {'board_item': clipped};
     var postUrl = `v1/clipboard/${boardId.split('_')[0]}/boarditem`
 
     fetch(`${aws_url_base}${postUrl}`,{
@@ -37,8 +53,8 @@ function sendToMain(clipped, boardId) {
 
 // get the contents of the board specified by boardId from the global clipboard
 // returns a Promise of the HTTPS request to receive this resource
-function getFromMain(boardId) {
-    var getUrl = `v1/clipboard/${boardId}?type=mostRecent||type=all`;
+function getFromClipboard(boardId) {
+    var getUrl = `v1/clipboard/${boardId}?type=mostRecent`;
     console.log(`getting from ${aws_url_base}${getUrl}`);
     return fetch(`${aws_url_base}${getUrl}`)
         .then(resp => resp.json());
@@ -49,7 +65,7 @@ function getFromMain(boardId) {
 function paste(info, tab, to_paste) {
     var message = { type: 'paste', msg: to_paste };
     chrome.tabs.sendMessage(tab.id, message, function(clicked) {
-        // do nothing for now
+        console.log(`Pasted ${to_paste} onto the page`);
     });
 }
 
@@ -72,6 +88,11 @@ function generateRootMenus() {
 // given all user clipboards from the global server,
 // generate the appropriate menus to appear on right-click
 function generateMenus() {
+    // check for the race condition caused by repeated 
+    // updates overwriting eachother
+    if (chrome.runtime.lastError) {
+        console.log('DAMN YOU, RACE CONDITION');
+    }
     console.log(needsUpdate);
     // remove all menus for a clean slate
     chrome.contextMenus.removeAll();
@@ -112,11 +133,6 @@ function generateMenus() {
                     });
             }
 
-            // check for the race condition caused by repeated 
-            // updates overwriting eachother
-            if (chrome.runtime.lastError) {
-                console.log('DAMN YOU, RACE CONDITION');
-            }
         }).catch(err => console.log(err));
     });
 
@@ -139,9 +155,9 @@ chrome.runtime.onInstalled.addListener(function() {
         var parentId = info.parentMenuItemId;
         if (parentId === 'root-copy') {
             console.log(`${info.selectionText} copied`);
-            sendToMain(info.selectionText, id);
+            sendToClipboard(info.selectionText, id);
         } else if (parentId == 'root-paste') {
-            getFromMain(id.split('_')[0]).then(item => {
+            getFromClipboard(id.split('_')[0]).then(item => {
                 var toPaste = item[0].text_content;
                 var message = { type: 'paste', msg: toPaste };
                 chrome.tabs.sendMessage(tab.id, message, function(clicked) {
@@ -150,11 +166,10 @@ chrome.runtime.onInstalled.addListener(function() {
             });
         } else if (parentId == undefined) {
             // user has clicked on the parent menus. choose their default (if it exists)
-            let getDefault = chrome.storage.sync.get('default');
-            getDefault.then(def => {
-                if (def) {
-                    console.log('Def is: ' + def);
-                }    
+            chrome.storage.sync.get('default', item => {
+                if (item.default) {
+                    console.log('Def is: ' + def); 
+                }
             });
         }
     });
@@ -165,7 +180,6 @@ var needsUpdate = true;
 chrome.runtime.onMessage.addListener(function(msg, sender, response) {
         console.log('generate');
         if (msg.request === 'update' && needsUpdate) {
-            console.log('needs update is: ' + needsUpdate);
             needsUpdate = false;
             generateMenus();
         }
