@@ -1,6 +1,6 @@
-/* Background Script for CLIPPY Chrome Extension
+/* BACKGROUND
+ * Background Script for CLIPPY Chrome Extension
  * Sets up user credential collection and the context menu system
- * Author: Keaton Ufheil
  */
 
 // all routes through here
@@ -84,7 +84,6 @@ function generateRootMenus() {
     });
 }
         
-
 // given all user clipboards from the global server,
 // generate the appropriate menus to appear on right-click
 function generateMenus() {
@@ -93,10 +92,10 @@ function generateMenus() {
     if (chrome.runtime.lastError) {
         console.log('DAMN YOU, RACE CONDITION');
     }
-    console.log(needsUpdate);
     // remove all menus for a clean slate
     chrome.contextMenus.removeAll();
 
+    // create parent menus
     generateRootMenus();
 
     // return all the user's clipboards on the global server
@@ -113,7 +112,6 @@ function generateMenus() {
         })
         // get the response in a readable format
         .then(resp => resp.json())
-
         .then(clipboards => {
             for (clipboard of clipboards) {
                 // clipboard to be shown on copy
@@ -138,7 +136,6 @@ function generateMenus() {
 
     needsUpdate = true;
 }
-
 
 // add events to occurr on extension installation
 chrome.runtime.onInstalled.addListener(function() {
@@ -176,9 +173,8 @@ chrome.runtime.onInstalled.addListener(function() {
 });
 
 var needsUpdate = true;
-
+// listen to the content script for when the context menus need to be updated
 chrome.runtime.onMessage.addListener(function(msg, sender, response) {
-        console.log('generate');
         if (msg.request === 'update' && needsUpdate) {
             needsUpdate = false;
             generateMenus();

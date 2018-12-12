@@ -1,6 +1,7 @@
-/* Content script for CLIPPY chrome extension
-* Receives message from background script when pasting from the
-* context menu occurs in order to paste into the page's selected field.
+/* CONTENT
+ * Content script for CLIPPY chrome extension
+ * Receives message from background script when pasting from the
+ * context menu occurs in order to paste into the page's selected field.
 */
 
 // always track the element that has been right-clicked
@@ -12,10 +13,8 @@ document.addEventListener('mousedown', function(event) {
     }
 }, true);
 
-
-// events to cause right-click menu to update
+// inform background script to update context menu
 function updateMenu() {
-    console.log('sent update');
     chrome.runtime.sendMessage({ request: 'update' });
 }
   
@@ -27,8 +26,7 @@ setInterval(updateMenu, refreshTime);
 // receive message from background.js for pasting into editable element
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     if (request.type == 'paste') {
-        console.log('ASKED TO PASTE');
-        rightClicked.value += request.msg; // paste
+        rightClicked.value = request.msg; // paste
     }
  });
 
